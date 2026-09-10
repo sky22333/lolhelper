@@ -1,0 +1,9 @@
+# 统一换行符：仓库内以 LF 存储，检出为 CRLF（Visual Studio / WPF 惯例）
+* text=auto eol=crlf
+
+# 二进制文件，禁止换行符转换
+*.ico binary
+*.png binary
+*.exe binary
+*.dll binary
+*.pdb binary

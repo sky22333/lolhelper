@@ -1,0 +1,29 @@
+# 构建输出
+bin/
+obj/
+dist/
+
+# UI 冒烟测试预览图
+tmp/
+
+# 图标生成器等维护工具（不参与应用构建）
+_tools/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# WPF 临时工程文件
+*_wpftmp.csproj
+
+# 测试与下载断点
+*.part
+installer.*
+*.download
+
+# 其他
+*.log
+Thumbs.db
