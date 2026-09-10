@@ -318,7 +318,7 @@ namespace LoLHelper
             AddHelpSection(content, "下载安装", "从 Riot 官方源获取台服安装器，支持暂停和断点续传。数字签名验证通过后，点击“立即安装”。");
             AddHelpSection(content, "应用简体中文", "先安装并启动一次游戏，点击“重新检测”，再应用简体中文。完成后重启客户端，等待语言资源更新。");
             AddHelpSection(content, "解除锁定", "允许客户端更新配置，并保留当前语言。解除锁定不会恢复语言，只是放开写入限制。");
-            content.Children.Add(MessageContent("本工具不是 Riot Games 官方产品，不修改游戏程序，也不绕过 Vanguard。开源地址：https://github.com/sky22333/lolhelper"));
+            content.Children.Add(MessageContent("本工具不是 Riot Games 官方产品，不修改游戏程序，也不绕过 Vanguard。\n开源地址：\nhttps://github.com/sky22333/lolhelper\n拳头账号注册：\nhttps://authenticate.riotgames.com/"));
             await ShowDialogAsync("使用帮助", content, null, "知道了");
         }
 
