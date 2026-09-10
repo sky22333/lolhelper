@@ -18,6 +18,9 @@ namespace LoLHelper.Services
         private static readonly Uri PrimaryUri = new Uri("https://lol.secure.dyn.riotcdn.net/channels/public/x/installer/current/live.tw2.exe");
         private static readonly Uri OfficialPage = new Uri("https://www.leagueoflegends.com/zh-tw/download/");
         private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(30);
+        // Installers at or above this size are split into more segments.
+        private const long SegmentThreshold = 512L * 1024 * 1024;
+        private const int CopyBufferSize = 131072;
         private readonly HttpClient _client;
         private readonly SignatureVerifier _signatureVerifier;
         private readonly string _workDirectory;
@@ -116,7 +119,7 @@ namespace LoLHelper.Services
             {
                 try
                 {
-                    if (metadata.SupportsRanges && metadata.Length > 0)
+                    if (SegmentCount(metadata) > 1)
                         await DownloadSegmentsAsync(metadata, value => Interlocked.Add(ref downloaded, value), cancellationToken).ConfigureAwait(false);
                     else
                         await DownloadSingleAsync(metadata, value => Interlocked.Add(ref downloaded, value), cancellationToken).ConfigureAwait(false);
@@ -136,9 +139,9 @@ namespace LoLHelper.Services
             await Task.Run(() => Assemble(metadata, assembled), cancellationToken).ConfigureAwait(false);
 
             var signature = await Task.Run(() => _signatureVerifier.Verify(assembled, useCache: false), cancellationToken).ConfigureAwait(false);
-            if (!signature.IsTrusted || !signature.IsRiot)
+            if (!signature.IsVerifiedRiot)
             {
-                TryDelete(assembled);
+                FileIo.TryDelete(assembled);
                 throw new InvalidDataException("安装器数字签名未通过 Riot Games 发布者验证，已禁止执行。" +
                     (string.IsNullOrWhiteSpace(signature.Error) ? string.Empty : " " + signature.Error));
             }
@@ -152,20 +155,13 @@ namespace LoLHelper.Services
                 State = DownloadState.Ready,
                 DownloadedBytes = downloaded,
                 TotalBytes = metadata.Length,
-                Message = "官方安装器已验证",
-                FilePath = finalPath
+                Message = "官方安装器已验证"
             });
             return finalPath;
         }
 
-        public void CancelAndDelete()
-        {
-            // The work directory may have been removed between downloading and cancelling.
-            if (Directory.Exists(_workDirectory))
-                foreach (var file in Directory.GetFiles(_workDirectory, "installer.*")) File.Delete(file);
-            var assembled = Path.Combine(_workDirectory, "live.tw2.complete.exe");
-            if (File.Exists(assembled)) File.Delete(assembled);
-        }
+        /// <summary>Reuses the single cleanup path; the work directory may already be gone.</summary>
+        public void CancelAndDelete() => DeleteWorkingFiles();
 
         private async Task<ProbeResult> ResolveAndProbeAsync(CancellationToken token)
         {
@@ -267,7 +263,7 @@ namespace LoLHelper.Services
 
         private async Task DownloadSegmentsAsync(DownloadMetadata metadata, Action<long> onBytes, CancellationToken token)
         {
-            var count = metadata.Length >= 512L * 1024 * 1024 ? 8 : 4;
+            var count = SegmentCount(metadata);
             var segmentSize = metadata.Length / count;
             var tasks = new List<Task>();
             for (var i = 0; i < count; i++)
@@ -299,7 +295,7 @@ namespace LoLHelper.Services
                         if (!string.IsNullOrEmpty(etag) && response.Headers.ETag != null && response.Headers.ETag.Tag != etag)
                             throw new InvalidDataException("远端安装器已更新，请取消后重新下载。");
                         using (var input = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
-                        using (var output = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read, 131072, true))
+                        using (var output = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read, CopyBufferSize, true))
                             await CopyAsync(input, output, onBytes, token).ConfigureAwait(false);
                     }
                     if (new FileInfo(path).Length != expected) throw new IOException("分片长度不完整。");
@@ -331,7 +327,7 @@ namespace LoLHelper.Services
                     {
                         response.EnsureSuccessStatusCode();
                         using (var input = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
-                        using (var output = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 131072, true))
+                        using (var output = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, CopyBufferSize, true))
                             await CopyAsync(input, output, onBytes, token).ConfigureAwait(false);
                     }
                     if (new FileInfo(path).Length != metadata.Length) throw new IOException("安装器长度不完整。");
@@ -347,7 +343,7 @@ namespace LoLHelper.Services
 
         private static async Task CopyAsync(Stream input, Stream output, Action<long> onBytes, CancellationToken token)
         {
-            var buffer = new byte[131072];
+            var buffer = new byte[CopyBufferSize];
             while (true)
             {
                 var read = await input.ReadAsync(buffer, 0, buffer.Length, token).ConfigureAwait(false);
@@ -360,13 +356,13 @@ namespace LoLHelper.Services
 
         private void Assemble(DownloadMetadata metadata, string destination)
         {
-            TryDelete(destination);
-            using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 131072))
+            FileIo.TryDelete(destination);
+            using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, CopyBufferSize))
             {
-                var count = metadata.SupportsRanges ? (metadata.Length >= 512L * 1024 * 1024 ? 8 : 4) : 1;
+                var count = SegmentCount(metadata);
                 for (var i = 0; i < count; i++)
-                using (var input = new FileStream(SegmentPath(i), FileMode.Open, FileAccess.Read, FileShare.Read, 131072))
-                    input.CopyTo(output, 131072);
+                using (var input = new FileStream(SegmentPath(i), FileMode.Open, FileAccess.Read, FileShare.Read, CopyBufferSize))
+                    input.CopyTo(output, CopyBufferSize);
                 output.Flush(true);
                 if (output.Length != metadata.Length) throw new InvalidDataException("合并后的安装器大小不正确。");
             }
@@ -374,7 +370,7 @@ namespace LoLHelper.Services
 
         private long GetExistingLength(DownloadMetadata metadata)
         {
-            var count = metadata.SupportsRanges ? (metadata.Length >= 512L * 1024 * 1024 ? 8 : 4) : 1;
+            var count = SegmentCount(metadata);
             long total = 0;
             for (var i = 0; i < count; i++)
                 if (File.Exists(SegmentPath(i))) total += new FileInfo(SegmentPath(i)).Length;
@@ -382,6 +378,16 @@ namespace LoLHelper.Services
         }
 
         private string SegmentPath(int index) => Path.Combine(_workDirectory, "installer." + index + ".part");
+
+        /// <summary>
+        /// The one source of truth for how many segment files an installer occupies. The download
+        /// path, <see cref="Assemble"/> and <see cref="GetExistingLength"/> must all agree, or a
+        /// resumed download assembles the wrong files. A single-file download still uses segment 0.
+        /// </summary>
+        private static int SegmentCount(DownloadMetadata metadata) =>
+            metadata.SupportsRanges && metadata.Length > 0
+                ? (metadata.Length >= SegmentThreshold ? 8 : 4)
+                : 1;
 
         private static bool IsAllowedNetworkUri(Uri uri)
         {
@@ -446,13 +452,12 @@ namespace LoLHelper.Services
             try
             {
                 foreach (var file in Directory.GetFiles(_workDirectory, "installer.*"))
-                    TryDelete(file);
-                TryDelete(Path.Combine(_workDirectory, "live.tw2.complete.exe"));
+                    FileIo.TryDelete(file);
+                FileIo.TryDelete(Path.Combine(_workDirectory, "live.tw2.complete.exe"));
             }
             catch { }
         }
 
-        private static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
         public void Dispose() => _client.Dispose();
 
         private sealed class ProbeResult

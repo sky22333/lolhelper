@@ -70,7 +70,7 @@ namespace LoLHelper.Services
                 }
                 finally
                 {
-                    TryDelete(temp);
+                    FileIo.TryDelete(temp);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -204,8 +204,6 @@ namespace LoLHelper.Services
                 stream.Flush(true);
             }
         }
-
-        private static void TryDelete(string path) { try { if (File.Exists(path)) File.Delete(path); } catch { } }
     }
 
     internal static class YamlLocaleEditor

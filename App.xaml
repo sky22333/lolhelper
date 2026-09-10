@@ -65,7 +65,7 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Grid x:Name="ButtonRoot" SnapsToDevicePixels="True">
-                            <Border x:Name="Surface" CornerRadius="{StaticResource ControlRadius}"
+                            <Border CornerRadius="{StaticResource ControlRadius}"
                                     Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}" />
                             <!-- Opacity feedback only: no movement, scale, border changes or layout shifts. -->
@@ -73,7 +73,7 @@
                                     CornerRadius="{StaticResource ControlRadius}" IsHitTestVisible="False" />
                             <Border x:Name="PressedWash" Background="#13283F" Opacity="0"
                                     CornerRadius="{StaticResource ControlRadius}" IsHitTestVisible="False" />
-                            <ContentPresenter x:Name="Label" Margin="{TemplateBinding Padding}"
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
                                               HorizontalAlignment="Center" VerticalAlignment="Center"
                                               RecognizesAccessKey="True" />
                         </Grid>

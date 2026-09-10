@@ -290,7 +290,7 @@ namespace LoLHelper
                 var path = _verifiedInstallerPath;
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) throw new FileNotFoundException("安装器已移动或删除，请重新下载。");
                 var result = await Task.Run(() => _signatureVerifier.Verify(path!, useCache: false));
-                if (!result.IsTrusted || !result.IsRiot) throw new InvalidDataException("安装器签名未通过验证，请重新下载。");
+                if (!result.IsVerifiedRiot) throw new InvalidDataException("安装器签名未通过验证，请重新下载。");
                 Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
                 FooterStatusText.Text = "已启动安装器，请按安装向导继续";
             }

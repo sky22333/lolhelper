@@ -33,14 +33,13 @@ namespace LoLHelper.Services
                             var path = process.MainModule?.FileName;
                             if (string.IsNullOrWhiteSpace(path)) continue;
                             var signature = _signatureVerifier.Verify(path!);
-                            if (!signature.IsTrusted || !signature.IsRiot) continue;
+                            if (!signature.IsVerifiedRiot) continue;
                             results.Add(new RiotProcessInfo
                             {
                                 ProcessId = process.Id,
                                 StartTime = TryGetStartTime(process),
                                 Name = process.ProcessName,
                                 Path = path!,
-                                Publisher = signature.Publisher,
                                 Icon = ExtractIcon(path!)
                             });
                         }
@@ -68,7 +67,7 @@ namespace LoLHelper.Services
                             if (string.IsNullOrWhiteSpace(path) ||
                                 !string.Equals(path, item.Path, StringComparison.OrdinalIgnoreCase)) continue;
                             var signature = _signatureVerifier.Verify(path!);
-                            if (!signature.IsTrusted || !signature.IsRiot) continue;
+                            if (!signature.IsVerifiedRiot) continue;
                             if (process.CloseMainWindow() && process.WaitForExit(2500))
                             {
                                 stopped++;

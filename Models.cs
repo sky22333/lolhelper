@@ -16,6 +16,9 @@ namespace LoLHelper
         public bool IsRiot { get; set; }
         public string Publisher { get; set; } = string.Empty;
         public string Error { get; set; } = string.Empty;
+
+        /// <summary>Both halves are required: a trusted signature that Riot Games actually published.</summary>
+        public bool IsVerifiedRiot => IsTrusted && IsRiot;
     }
 
     internal sealed class RiotProcessInfo
@@ -24,7 +27,6 @@ namespace LoLHelper
         public DateTime? StartTime { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
-        public string Publisher { get; set; } = string.Empty;
         public ImageSource? Icon { get; set; }
     }
 
@@ -47,6 +49,5 @@ namespace LoLHelper
         public long TotalBytes { get; set; }
         public double BytesPerSecond { get; set; }
         public string Message { get; set; } = string.Empty;
-        public string? FilePath { get; set; }
     }
 }

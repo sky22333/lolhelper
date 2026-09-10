@@ -38,7 +38,7 @@
                 </Border>
                 <ScrollViewer x:Name="ContentScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled" Padding="{StaticResource PageInset}">
-                    <StackPanel x:Name="PageContent">
+                    <StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,16,0">

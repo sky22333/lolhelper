@@ -1,5 +1,3 @@
-using System;
-
 namespace LoLHelper
 {
     // One owner for download transitions; late progress cannot revive a finished operation.
